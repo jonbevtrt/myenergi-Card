@@ -1,7 +1,10 @@
 node_modules/
-dist/
 *.log
 .DS_Store
 .vscode/
 .idea/
 *.tsbuildinfo
+
+# Ship the compiled JS for HACS (compliant structure requires dist/<filename>.js
+# to exist on the default branch), but don't track sourcemaps.
+dist/*.map
