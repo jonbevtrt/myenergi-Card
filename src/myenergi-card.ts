@@ -323,33 +323,43 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
     if (n.flow !== 'none') {
       const src = n.flow === 'in' ? to : from;
       const dst = n.flow === 'in' ? from : to;
-      const pathId = `flow-${n.slot}`;
+      const dx = dst.x - src.x;
+      const dy = dst.y - src.y;
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
       const duration = 1.8;
       const count = 3;
 
+      // We drive the flow with plain <animateTransform> using absolute
+      // from/to coordinates. This avoids <animateMotion>+<mpath href="#..">
+      // which is flaky inside Lit's shadow DOM (the id lookup fails in
+      // some browsers). The chevron itself is rotated once, statically.
       chevrons = svg`
-        <path
-          id=${pathId}
-          d=${`M ${src.x} ${src.y} L ${dst.x} ${dst.y}`}
-          fill="none"
-          stroke="none"
-        />
         ${Array.from({ length: count }).map((_, i) => {
           const begin = -(i * duration) / count;
           return svg`
-            <path
-              d="M -4 -4 L 4 0 L -4 4 Z"
-              class="chevron animated-chevron"
-            >
-              <animateMotion
+            <g>
+              <g transform=${`rotate(${angle})`}>
+                <path class="chevron" d="M -4 -4 L 5 0 L -4 4 Z" />
+              </g>
+              <animateTransform
+                attributeName="transform"
+                attributeType="XML"
+                type="translate"
+                from=${`${src.x} ${src.y}`}
+                to=${`${dst.x} ${dst.y}`}
                 dur=${`${duration}s`}
                 repeatCount="indefinite"
-                rotate="auto"
                 begin=${`${begin}s`}
-              >
-                <mpath href=${`#${pathId}`} />
-              </animateMotion>
-            </path>
+              />
+              <animate
+                attributeName="opacity"
+                values="0;1;1;0"
+                keyTimes="0;0.15;0.85;1"
+                dur=${`${duration}s`}
+                repeatCount="indefinite"
+                begin=${`${begin}s`}
+              />
+            </g>
           `;
         })}
       `;

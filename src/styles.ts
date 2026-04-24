@@ -82,22 +82,6 @@ export const styles = css`
     stroke: none;
   }
 
-  .animated-chevron {
-    /* SMIL animateMotion drives position; a subtle CSS fade-in/out
-       gives the same "breathing" pulse as the myenergi app. */
-    animation: chevron-pulse 1.8s ease-in-out infinite;
-  }
-
-  @keyframes chevron-pulse {
-    0%,
-    100% {
-      opacity: 0.15;
-    }
-    50% {
-      opacity: 1;
-    }
-  }
-
   .node-bg {
     fill: var(--myenergi-bg);
     stroke-width: 3;
@@ -139,8 +123,7 @@ export const styles = css`
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .animated-chevron {
-      animation: none !important;
+    .chevron {
       display: none;
     }
   }
