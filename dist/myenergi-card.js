@@ -151,6 +151,8 @@ function e(e,t,i,n){var r,s=arguments.length,o=s<3?t:null===n?n=Object.getOwnPro
       viewBox=${`0 0 ${e.width} ${e.height}`}
       preserveAspectRatio="xMidYMid meet"
       overflow="visible"
+      fill-rule="evenodd"
+      clip-rule="evenodd"
       style=${`color:${r};`}
     >${Le(e.inner)}</svg>
   `}const et={home:44,grid:44,solar:46,libbi:46,zappi:50,eddi:46};function tt(e,t,i,n,r="tank"){const s=et[e];switch(e){case"home":return Xe(Fe,t,i,s,n);case"grid":return Xe(je,t,i,s,n);case"solar":return Xe(We,t,i,s,n);case"libbi":return it(t,i,s,n);case"zappi":return Xe(Ye,t,i,s,n);case"eddi":return Xe(Je[r]??Je.tank,t,i,s,n)}}function it(e,t,i,n,r){const s=Ke.width/Ke.height,o=s>=1?i:i*s,a=s>=1?i/s:i,l="number"==typeof r&&Number.isFinite(r),C=l?Math.max(0,Math.min(100,r)):100,h=l?Math.min(10,Math.ceil(C/10)):10,c=Ke.bars.slice(0,h).join(""),d=Ke.bars.slice(h).join("");return F`
@@ -162,6 +164,8 @@ function e(e,t,i,n){var r,s=arguments.length,o=s<3?t:null===n?n=Object.getOwnPro
       viewBox=${`0 0 ${Ke.width} ${Ke.height}`}
       preserveAspectRatio="xMidYMid meet"
       overflow="visible"
+      fill-rule="evenodd"
+      clip-rule="evenodd"
       style=${`color:${n};`}
     >${Le(Ke.body)}${d?F`<g opacity="0.22">${Le(d)}</g>`:W}${c?Le(c):W}</svg>
   `}console.info("%c myenergi-card %c v0.1.0 ","color:#fff;background:#2ecc71;font-weight:700;border-radius:3px 0 0 3px;padding:2px 6px;","color:#2ecc71;background:#0b0d10;border-radius:0 3px 3px 0;padding:2px 6px;"),window.customCards=window.customCards||[],window.customCards.push({type:$e,name:"myenergi Card",description:"Hexagonal power-flow visualisation for myenergi devices (Zappi, Eddi, Libbi, Harvi) in the style of the official myenergi app.",preview:!0,documentationURL:"https://github.com/"});let nt=class extends Ce{static async getConfigElement(){return await Promise.resolve().then(function(){return pt}),document.createElement(_e)}static getStubConfig(){return{type:`custom:${$e}`,title:"myenergi",grid:{power:""},solar:{power:""},home:{power:""},libbi:{power:"",soc:""},zappi:{power:"",plug:""},eddi:{power:""}}}setConfig(e){if(!e)throw new Error("Invalid configuration");this._config={...e}}getCardSize(){return 6}render(){if(!this._config||!this.hass)return W;const e=this._config.power_unit??"kW",t=this._config.flow_threshold??.05,i=this._buildNodes(t),n=this._readEcoScore(),r=!1!==this._config.show_footer,s=!1===this._config.title?void 0:this._config.title??"myenergi";return V`
@@ -261,7 +265,7 @@ function e(e,t,i,n){var r,s=arguments.length,o=s<3?t:null===n?n=Object.getOwnPro
         ${this._renderNodeIcon(e)}
         ${this._renderBadge(e)}
       </g>
-    `}_renderNodeIcon(e){const t=this._config?.[e.slot],i=t?.icon;if(i&&/^mdi:/i.test(i))return this._renderIcon(i,e.x,e.y,28,e.color);if("libbi"===e.slot)return it(e.x,e.y,46,e.color,e.soc);if("eddi"===e.slot){const t=this._config?.eddi;return tt(e.slot,e.x,e.y,e.color,t?.heater_type??"tank")}return tt(e.slot,e.x,e.y,e.color)}_shouldShowName(e){const t=this._config;if(!t)return!1;const i=t[e.slot];return void 0!==i?.name?Boolean(i.name):"libbi"===e.slot}_renderIcon(e,t,i,n,r){return F`
+    `}_renderNodeIcon(e){const t=this._config?.[e.slot],i=t?.icon,n="var(--myenergi-fg)";if(i&&/^mdi:/i.test(i))return this._renderIcon(i,e.x,e.y,28,n);if("libbi"===e.slot)return it(e.x,e.y,46,n,e.soc);if("eddi"===e.slot){const t=this._config?.eddi;return tt(e.slot,e.x,e.y,n,t?.heater_type??"tank")}return tt(e.slot,e.x,e.y,n)}_shouldShowName(e){const t=this._config;if(!t)return!1;const i=t[e.slot];return void 0!==i?.name?Boolean(i.name):"libbi"===e.slot}_renderIcon(e,t,i,n,r){return F`
       <foreignObject
         x=${t-n/2}
         y=${i-n/2}

@@ -446,22 +446,27 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
    * Renders the glyph inside a node. If the user supplied a custom MDI icon
    * (starts with "mdi:"), fall back to the <ha-icon> foreignObject path;
    * otherwise use the myenergi-app SVG assets.
+   *
+   * The glyph itself is always drawn in the card foreground colour (white
+   * on the default dark background) — just like the myenergi app. The
+   * state colour lives on the node ring and the power label only.
    */
   private _renderNodeIcon(n: NodeRender): SVGTemplateResult {
     const slotCfg = this._config?.[n.slot] as NodeConfig | undefined;
     const userIcon = slotCfg?.icon;
+    const iconColor = 'var(--myenergi-fg)';
     if (userIcon && /^mdi:/i.test(userIcon)) {
-      return this._renderIcon(userIcon, n.x, n.y, 28, n.color);
+      return this._renderIcon(userIcon, n.x, n.y, 28, iconColor);
     }
     if (n.slot === 'libbi') {
       // The libbi asset has 10 internal bars; light the first ceil(soc/10).
-      return batteryIcon(n.x, n.y, 46, n.color, n.soc);
+      return batteryIcon(n.x, n.y, 46, iconColor, n.soc);
     }
     if (n.slot === 'eddi') {
       const eddi = this._config?.eddi as EddiConfig | undefined;
-      return builtinIcon(n.slot, n.x, n.y, n.color, eddi?.heater_type ?? 'tank');
+      return builtinIcon(n.slot, n.x, n.y, iconColor, eddi?.heater_type ?? 'tank');
     }
-    return builtinIcon(n.slot, n.x, n.y, n.color);
+    return builtinIcon(n.slot, n.x, n.y, iconColor);
   }
 
   private _shouldShowName(n: NodeRender): boolean {

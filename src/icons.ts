@@ -105,6 +105,10 @@ function embed(
   const aspect = asset.width / asset.height;
   const w = aspect >= 1 ? size : size * aspect;
   const h = aspect >= 1 ? size / aspect : size;
+  // The source assets declare `fill-rule: evenodd` on their root <svg> so
+  // overlapping subpaths cut holes out of the filled shape (that's how the
+  // outline "look" is achieved). Nesting strips that inheritance, so we
+  // re-apply it here — otherwise every glyph renders as a solid blob.
   return svg`
     <svg
       x=${cx - w / 2}
@@ -114,6 +118,8 @@ function embed(
       viewBox=${`0 0 ${asset.width} ${asset.height}`}
       preserveAspectRatio="xMidYMid meet"
       overflow="visible"
+      fill-rule="evenodd"
+      clip-rule="evenodd"
       style=${`color:${color};`}
     >${unsafeSVG(asset.inner)}</svg>
   `;
@@ -188,6 +194,8 @@ export function batteryIcon(
       viewBox=${`0 0 ${BATTERY.width} ${BATTERY.height}`}
       preserveAspectRatio="xMidYMid meet"
       overflow="visible"
+      fill-rule="evenodd"
+      clip-rule="evenodd"
       style=${`color:${color};`}
     >${unsafeSVG(BATTERY.body)}${
       dimBars
