@@ -1,0 +1,45 @@
+{
+  "name": "myenergi-card",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A Home Assistant Lovelace card that visualises a myenergi power flow (Zappi, Eddi, Libbi, Harvi) in the style of the official myenergi app.",
+  "keywords": [
+    "home-assistant",
+    "lovelace",
+    "custom-card",
+    "myenergi",
+    "zappi",
+    "eddi",
+    "libbi",
+    "harvi",
+    "power-flow"
+  ],
+  "author": "Ivy Farm Barn",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/myenergi-card.js",
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c --watch",
+    "lint": "eslint \"src/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.{ts,css,json}\""
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@typescript-eslint/eslint-plugin": "^7.7.0",
+    "@typescript-eslint/parser": "^7.7.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
+    "rollup": "^4.14.3",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "custom-card-helpers": "^1.9.0",
+    "lit": "^3.1.2"
+  }
+}
