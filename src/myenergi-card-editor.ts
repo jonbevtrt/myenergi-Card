@@ -2,42 +2,193 @@ import { LitElement, html, css, type TemplateResult, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { HomeAssistant, LovelaceCardEditor } from 'custom-card-helpers';
 
-import type { MyenergiCardConfig, NodeSlot, NodeConfig } from './types.js';
+import type { MyenergiCardConfig } from './types.js';
 import { EDITOR_NAME } from './const.js';
+
+/**
+ * ha-form schema types (subset – only what we actually use).
+ *
+ * HA's `ha-form` element is shipped with HA core and handles rendering of
+ * entity pickers, icon pickers, booleans, numbers, selects and expandable
+ * sections. Using `ha-form` sidesteps the common "ha-entity-picker renders
+ * nothing" problem in custom card editors because HA guarantees its
+ * dependencies are loaded whenever `<ha-form>` is on screen.
+ */
+type HaSelector = Record<string, unknown>;
+
+interface HaFormBaseField {
+  name: string;
+  required?: boolean;
+  selector?: HaSelector;
+}
+
+interface HaFormGrid {
+  name: string;
+  type: 'grid';
+  schema: HaFormField[];
+}
+
+interface HaFormExpandable {
+  name: string;
+  type: 'expandable';
+  title?: string;
+  icon?: string;
+  schema: HaFormField[];
+}
+
+type HaFormField = HaFormBaseField | HaFormGrid | HaFormExpandable;
 
 const POWER_DOMAINS = ['sensor', 'input_number'];
 const BINARY_DOMAINS = ['binary_sensor', 'input_boolean', 'switch'];
 const STATUS_DOMAINS = ['sensor', 'input_select', 'input_text'];
 
-interface SlotSpec {
-  slot: NodeSlot;
-  label: string;
-  extraFields: Array<{
-    key: string;
-    label: string;
-    domains: string[];
-  }>;
-}
+// Helpers to build common selectors.
+const entitySel = (domains: string[]): HaSelector => ({
+  entity: { multiple: false, include_entities: undefined, filter: { domain: domains } },
+});
+const textSel = (): HaSelector => ({ text: {} });
+const iconSel = (): HaSelector => ({ icon: {} });
+const boolSel = (): HaSelector => ({ boolean: {} });
+const numberSel = (
+  min: number,
+  step: number,
+  unit?: string,
+): HaSelector => ({
+  number: { min, step, unit_of_measurement: unit, mode: 'box' },
+});
 
-const SLOTS: SlotSpec[] = [
-  { slot: 'grid',  label: 'Grid',  extraFields: [] },
-  { slot: 'solar', label: 'Solar', extraFields: [] },
-  { slot: 'home',  label: 'Home',  extraFields: [] },
+const slotInnerSchema = (extras: HaFormField[] = []): HaFormField[] => [
   {
-    slot: 'libbi',
-    label: 'Libbi (Battery)',
-    extraFields: [{ key: 'soc', label: 'State of charge', domains: ['sensor'] }],
-  },
-  {
-    slot: 'zappi',
-    label: 'Zappi (EV Charger)',
-    extraFields: [
-      { key: 'plug', label: 'Plug state', domains: BINARY_DOMAINS },
-      { key: 'status', label: 'Status', domains: STATUS_DOMAINS },
+    name: '',
+    type: 'grid',
+    schema: [
+      { name: 'power', selector: entitySel(POWER_DOMAINS) },
+      { name: 'name', selector: textSel() },
     ],
   },
-  { slot: 'eddi', label: 'Eddi (Hot Water)', extraFields: [] },
+  ...extras,
+  {
+    name: '',
+    type: 'grid',
+    schema: [
+      { name: 'icon', selector: iconSel() },
+      { name: 'invert', selector: boolSel() },
+    ],
+  },
 ];
+
+const SCHEMA: HaFormField[] = [
+  {
+    name: '',
+    type: 'grid',
+    schema: [
+      { name: 'title', selector: textSel() },
+      { name: 'eco_score', selector: entitySel(['sensor', 'input_number']) },
+    ],
+  },
+  {
+    name: '',
+    type: 'grid',
+    schema: [
+      {
+        name: 'power_unit',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: [
+              { value: 'kW', label: 'kW' },
+              { value: 'W', label: 'W' },
+            ],
+          },
+        },
+      },
+      { name: 'flow_threshold', selector: numberSel(0, 0.01, 'kW') },
+    ],
+  },
+  { name: 'show_footer', selector: boolSel() },
+
+  {
+    name: 'grid',
+    type: 'expandable',
+    title: 'Grid',
+    icon: 'mdi:transmission-tower',
+    schema: slotInnerSchema(),
+  },
+  {
+    name: 'solar',
+    type: 'expandable',
+    title: 'Solar',
+    icon: 'mdi:solar-panel',
+    schema: slotInnerSchema(),
+  },
+  {
+    name: 'home',
+    type: 'expandable',
+    title: 'Home',
+    icon: 'mdi:home-variant-outline',
+    schema: slotInnerSchema(),
+  },
+  {
+    name: 'libbi',
+    type: 'expandable',
+    title: 'Libbi (Battery)',
+    icon: 'mdi:battery-high',
+    schema: slotInnerSchema([
+      {
+        name: '',
+        type: 'grid',
+        schema: [{ name: 'soc', selector: entitySel(['sensor', 'input_number']) }],
+      },
+    ]),
+  },
+  {
+    name: 'zappi',
+    type: 'expandable',
+    title: 'Zappi (EV Charger)',
+    icon: 'mdi:car-electric-outline',
+    schema: slotInnerSchema([
+      {
+        name: '',
+        type: 'grid',
+        schema: [
+          { name: 'plug', selector: entitySel(BINARY_DOMAINS) },
+          { name: 'status', selector: entitySel(STATUS_DOMAINS) },
+        ],
+      },
+    ]),
+  },
+  {
+    name: 'eddi',
+    type: 'expandable',
+    title: 'Eddi (Hot Water)',
+    icon: 'mdi:water-boiler',
+    schema: slotInnerSchema(),
+  },
+];
+
+const LABELS: Record<string, string> = {
+  title: 'Title',
+  eco_score: 'Eco score entity',
+  power_unit: 'Power unit',
+  flow_threshold: 'Flow threshold (kW)',
+  show_footer: 'Show footer',
+
+  power: 'Power entity',
+  name: 'Name',
+  icon: 'Icon (optional)',
+  invert: 'Invert sign',
+
+  soc: 'State of charge entity',
+  plug: 'Plug state entity',
+  status: 'Status entity',
+
+  grid: 'Grid',
+  solar: 'Solar',
+  home: 'Home',
+  libbi: 'Libbi (Battery)',
+  zappi: 'Zappi (EV Charger)',
+  eddi: 'Eddi (Hot Water)',
+};
 
 @customElement(EDITOR_NAME)
 export class MyenergiCardEditor extends LitElement implements LovelaceCardEditor {
@@ -52,222 +203,89 @@ export class MyenergiCardEditor extends LitElement implements LovelaceCardEditor
     :host {
       display: block;
     }
-    .section {
-      margin-bottom: 12px;
-      padding: 12px;
-      border: 1px solid var(--divider-color);
-      border-radius: 8px;
-    }
-    .section h3 {
-      margin: 0 0 8px 0;
-      font-size: 14px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: var(--secondary-text-color);
-    }
-    .row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-    .row.full {
-      grid-template-columns: 1fr;
-    }
-    ha-textfield,
-    ha-entity-picker,
-    ha-icon-picker,
-    ha-select,
-    ha-formfield {
-      width: 100%;
+    ha-form {
+      display: block;
     }
   `;
 
   protected render(): TemplateResult | typeof nothing {
     if (!this.hass || !this._config) return nothing;
 
+    const data = this._toFormData(this._config);
+
     return html`
-      <div class="section">
-        <h3>General</h3>
-        <div class="row">
-          <ha-textfield
-            label="Title"
-            .value=${this._titleValue()}
-            @input=${(e: Event) => this._updateTitle((e.target as HTMLInputElement).value)}
-          ></ha-textfield>
-          ${this._entityPicker('eco_score', 'Eco score entity', ['sensor'])}
-        </div>
-        <div class="row">
-          <ha-select
-            label="Power unit"
-            .value=${this._config.power_unit ?? 'kW'}
-            @selected=${(e: CustomEvent) => {
-              const v = (e.detail as { value?: string }).value;
-              if (v) this._updateRoot({ power_unit: v as 'kW' | 'W' });
-            }}
-            @closed=${(e: Event) => e.stopPropagation()}
-          >
-            <mwc-list-item value="kW">kW</mwc-list-item>
-            <mwc-list-item value="W">W</mwc-list-item>
-          </ha-select>
-          <ha-textfield
-            label="Flow threshold (kW)"
-            type="number"
-            step="0.01"
-            .value=${String(this._config.flow_threshold ?? 0.05)}
-            @input=${(e: Event) => {
-              const v = Number((e.target as HTMLInputElement).value);
-              this._updateRoot({ flow_threshold: Number.isFinite(v) ? v : undefined });
-            }}
-          ></ha-textfield>
-        </div>
-        <div class="row">
-          <ha-formfield label="Show footer">
-            <ha-switch
-              .checked=${this._config.show_footer !== false}
-              @change=${(e: Event) =>
-                this._updateRoot({ show_footer: (e.target as HTMLInputElement).checked })}
-            ></ha-switch>
-          </ha-formfield>
-        </div>
-      </div>
-
-      ${SLOTS.map((spec) => this._renderSlot(spec))}
-    `;
-  }
-
-  private _renderSlot(spec: SlotSpec): TemplateResult {
-    const slotCfg = (this._config?.[spec.slot] as NodeConfig | undefined) ?? {};
-    return html`
-      <div class="section">
-        <h3>${spec.label}</h3>
-        <div class="row">
-          ${this._slotEntityPicker(spec.slot, 'power', 'Power entity', POWER_DOMAINS)}
-          <ha-textfield
-            label="Name"
-            .value=${String(slotCfg.name ?? '')}
-            @input=${(e: Event) =>
-              this._updateSlot(spec.slot, { name: (e.target as HTMLInputElement).value || undefined })}
-          ></ha-textfield>
-        </div>
-        ${spec.extraFields.length
-          ? html`
-              <div class="row">
-                ${spec.extraFields.map((f) =>
-                  this._slotEntityPicker(spec.slot, f.key, f.label, f.domains),
-                )}
-              </div>
-            `
-          : nothing}
-        <div class="row">
-          <ha-formfield label="Invert sign">
-            <ha-switch
-              .checked=${Boolean(slotCfg.invert)}
-              @change=${(e: Event) =>
-                this._updateSlot(spec.slot, {
-                  invert: (e.target as HTMLInputElement).checked || undefined,
-                })}
-            ></ha-switch>
-          </ha-formfield>
-          <ha-textfield
-            label="Icon (optional)"
-            .value=${String(slotCfg.icon ?? '')}
-            placeholder="mdi:home"
-            @input=${(e: Event) =>
-              this._updateSlot(spec.slot, {
-                icon: (e.target as HTMLInputElement).value || undefined,
-              })}
-          ></ha-textfield>
-        </div>
-      </div>
-    `;
-  }
-
-  private _titleValue(): string {
-    const t = this._config?.title;
-    if (t === false) return '';
-    return (t as string) ?? '';
-  }
-
-  private _updateTitle(v: string): void {
-    this._updateRoot({ title: v || undefined });
-  }
-
-  private _entityPicker(
-    key: keyof MyenergiCardConfig,
-    label: string,
-    domains: string[],
-  ): TemplateResult {
-    return html`
-      <ha-entity-picker
+      <ha-form
         .hass=${this.hass}
-        label=${label}
-        .value=${(this._config?.[key] as string | undefined) ?? ''}
-        allow-custom-entity
-        .includeDomains=${domains}
-        @value-changed=${(e: CustomEvent) => {
-          const v = (e.detail as { value?: string }).value;
-          this._updateRoot({ [key]: v || undefined } as Partial<MyenergiCardConfig>);
-        }}
-      ></ha-entity-picker>
+        .data=${data}
+        .schema=${SCHEMA}
+        .computeLabel=${this._computeLabel}
+        @value-changed=${this._onValueChanged}
+      ></ha-form>
     `;
   }
 
-  private _slotEntityPicker(
-    slot: NodeSlot,
-    key: string,
-    label: string,
-    domains: string[],
-  ): TemplateResult {
-    const slotCfg = (this._config?.[slot] as Record<string, unknown> | undefined) ?? {};
-    const value = (slotCfg[key] as string | undefined) ?? '';
-    return html`
-      <ha-entity-picker
-        .hass=${this.hass}
-        label=${label}
-        .value=${value}
-        allow-custom-entity
-        .includeDomains=${domains}
-        @value-changed=${(e: CustomEvent) => {
-          const v = (e.detail as { value?: string }).value;
-          this._updateSlot(slot, { [key]: v || undefined });
-        }}
-      ></ha-entity-picker>
-    `;
+  private _computeLabel = (schema: { name: string }): string =>
+    LABELS[schema.name] ?? schema.name;
+
+  /**
+   * ha-form binds directly to keys of the data object. Booleans must be
+   * defined (undefined -> rendered as off but may re-emit undefined). We
+   * normalise the config so ha-form always has a value to render.
+   */
+  private _toFormData(config: MyenergiCardConfig): Record<string, unknown> {
+    const data: Record<string, unknown> = {
+      title: typeof config.title === 'string' ? config.title : '',
+      eco_score: config.eco_score ?? '',
+      power_unit: config.power_unit ?? 'kW',
+      flow_threshold: config.flow_threshold ?? 0.05,
+      show_footer: config.show_footer !== false,
+    };
+    for (const slot of ['grid', 'solar', 'home', 'libbi', 'zappi', 'eddi'] as const) {
+      data[slot] = { ...(config[slot] as Record<string, unknown> | undefined ?? {}) };
+    }
+    return data;
   }
 
-  private _updateRoot(patch: Partial<MyenergiCardConfig>): void {
+  private _onValueChanged = (ev: CustomEvent): void => {
+    ev.stopPropagation();
     if (!this._config) return;
-    const next: MyenergiCardConfig = { ...this._config, ...patch };
-    for (const k of Object.keys(next) as Array<keyof MyenergiCardConfig>) {
-      if ((next as Record<string, unknown>)[k as string] === undefined) {
-        delete (next as Record<string, unknown>)[k as string];
+
+    const raw = (ev.detail as { value: Record<string, unknown> }).value;
+
+    const next: Record<string, unknown> = {
+      type: this._config.type,
+    };
+
+    // Title: empty string -> remove.
+    if (typeof raw.title === 'string' && raw.title.trim() !== '') {
+      next.title = raw.title;
+    }
+
+    if (raw.eco_score) next.eco_score = raw.eco_score;
+    if (raw.power_unit && raw.power_unit !== 'kW') next.power_unit = raw.power_unit;
+
+    if (
+      typeof raw.flow_threshold === 'number' &&
+      Number.isFinite(raw.flow_threshold) &&
+      raw.flow_threshold !== 0.05
+    ) {
+      next.flow_threshold = raw.flow_threshold;
+    }
+
+    if (raw.show_footer === false) next.show_footer = false;
+
+    for (const slot of ['grid', 'solar', 'home', 'libbi', 'zappi', 'eddi'] as const) {
+      const slotRaw = (raw[slot] as Record<string, unknown> | undefined) ?? {};
+      const cleaned: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(slotRaw)) {
+        if (v === undefined || v === null || v === '') continue;
+        if (k === 'invert' && v === false) continue;
+        cleaned[k] = v;
       }
+      if (Object.keys(cleaned).length > 0) next[slot] = cleaned;
     }
-    this._config = next;
-    this._emitChange();
-  }
 
-  private _updateSlot(slot: NodeSlot, patch: Record<string, unknown>): void {
-    if (!this._config) return;
-    const existing = (this._config[slot] as Record<string, unknown> | undefined) ?? {};
-    const merged: Record<string, unknown> = { ...existing, ...patch };
-    for (const k of Object.keys(merged)) {
-      if (merged[k] === undefined || merged[k] === '') delete merged[k];
-    }
-    const next = { ...this._config } as Record<string, unknown>;
-    if (Object.keys(merged).length === 0) {
-      delete next[slot];
-    } else {
-      next[slot] = merged;
-    }
     this._config = next as MyenergiCardConfig;
-    this._emitChange();
-  }
-
-  private _emitChange(): void {
-    if (!this._config) return;
     this.dispatchEvent(
       new CustomEvent('config-changed', {
         detail: { config: this._config },
@@ -275,7 +293,7 @@ export class MyenergiCardEditor extends LitElement implements LovelaceCardEditor
         composed: true,
       }),
     );
-  }
+  };
 }
 
 declare global {
