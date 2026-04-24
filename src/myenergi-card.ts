@@ -323,41 +323,58 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
     if (n.flow !== 'none') {
       const src = n.flow === 'in' ? to : from;
       const dst = n.flow === 'in' ? from : to;
-      const dx = dst.x - src.x;
-      const dy = dst.y - src.y;
-      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      const angle = Math.atan2(dst.y - src.y, dst.x - src.x);
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+
+      // Bake the chevron's orientation straight into the path's vertices
+      // (a chevron pointing along +x rotated by `angle`). This removes the
+      // need for a nested <g transform="rotate(…)"> which, combined with
+      // an <animateTransform> on an outer <g> with no base transform, made
+      // Chrome-Windows park the whole thing at (0,0) until the next paint
+      // invalidation (Chrome-Android doesn't apply the same optimisation).
+      const rot = (x: number, y: number): [number, number] => [
+        x * cos - y * sin,
+        x * sin + y * cos,
+      ];
+      const p1 = rot(-4, -4);
+      const p2 = rot(5, 0);
+      const p3 = rot(-4, 4);
+      const fmt = (v: number): string => v.toFixed(2);
+      const d =
+        `M ${fmt(p1[0])} ${fmt(p1[1])} ` +
+        `L ${fmt(p2[0])} ${fmt(p2[1])} ` +
+        `L ${fmt(p3[0])} ${fmt(p3[1])} Z`;
+
       const duration = 1.8;
       const count = 3;
+      const initialTransform = `translate(${src.x} ${src.y})`;
 
-      // We drive the flow with plain <animateTransform> using absolute
-      // from/to coordinates. This avoids <animateMotion>+<mpath href="#..">
-      // which is flaky inside Lit's shadow DOM (the id lookup fails in
-      // some browsers). The chevron itself is rotated once, statically.
       chevrons = svg`
         ${Array.from({ length: count }).map((_, i) => {
-          const begin = -(i * duration) / count;
+          // Stagger with POSITIVE begin values — negative begin has a
+          // Chrome-Windows bug where the "already-elapsed" phase can
+          // freeze the element at the origin.
+          const begin = (i * duration) / count;
           return svg`
-            <g>
-              <g transform=${`rotate(${angle})`}>
-                <path class="chevron" d="M -4 -4 L 5 0 L -4 4 Z" />
-              </g>
+            <g transform=${initialTransform}>
+              <path class="chevron" d=${d} />
               <animateTransform
                 attributeName="transform"
-                attributeType="XML"
                 type="translate"
                 from=${`${src.x} ${src.y}`}
                 to=${`${dst.x} ${dst.y}`}
                 dur=${`${duration}s`}
-                repeatCount="indefinite"
                 begin=${`${begin}s`}
+                repeatCount="indefinite"
               />
               <animate
                 attributeName="opacity"
                 values="0;1;1;0"
                 keyTimes="0;0.15;0.85;1"
                 dur=${`${duration}s`}
-                repeatCount="indefinite"
                 begin=${`${begin}s`}
+                repeatCount="indefinite"
               />
             </g>
           `;
