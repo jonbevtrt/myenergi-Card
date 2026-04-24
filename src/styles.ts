@@ -79,6 +79,23 @@ export const styles = css`
 
   .chevron {
     fill: var(--myenergi-green);
+    stroke: none;
+  }
+
+  .animated-chevron {
+    /* SMIL animateMotion drives position; a subtle CSS fade-in/out
+       gives the same "breathing" pulse as the myenergi app. */
+    animation: chevron-pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes chevron-pulse {
+    0%,
+    100% {
+      opacity: 0.15;
+    }
+    50% {
+      opacity: 1;
+    }
   }
 
   .node-bg {

@@ -37,6 +37,7 @@ import {
   stateNumber,
 } from './utils.js';
 import { styles } from './styles.js';
+import { builtinIcon, leafGlyph } from './icons.js';
 
 /* eslint-disable no-console */
 console.info(
@@ -120,12 +121,6 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
             preserveAspectRatio="xMidYMid meet"
             aria-label="myenergi power flow"
           >
-            <defs>
-              <symbol id="me-chevron" viewBox="-6 -6 12 12" overflow="visible">
-                <path d="M-3 -4 L3 0 L-3 4 Z" class="chevron" />
-              </symbol>
-            </defs>
-
             ${nodes.map((n) => this._renderLine(n))}
             ${this._renderCenter(ecoScore)}
             ${nodes.map((n) => this._renderNode(n, unit))}
@@ -231,14 +226,13 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
 
       // Colour overrides per slot state.
       let color = def.color;
-      let icon = slotCfg?.icon ?? def.icon;
+      const icon = slotCfg?.icon ?? def.icon;
       let badge: NodeBadge | undefined;
       let soc: number | undefined;
 
       if (slot === 'libbi') {
         const b = cfg.libbi as BatteryConfig | undefined;
         soc = normaliseSoc(getEntity(this.hass, b?.soc));
-        icon = this._batteryIcon(soc);
         color =
           signed > 0
             ? 'var(--myenergi-orange)'
@@ -316,17 +310,6 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
     }
   }
 
-  private _batteryIcon(soc: number | undefined): string {
-    if (soc === undefined) return 'mdi:battery';
-    if (soc >= 95) return 'mdi:battery';
-    if (soc >= 80) return 'mdi:battery-90';
-    if (soc >= 65) return 'mdi:battery-70';
-    if (soc >= 50) return 'mdi:battery-50';
-    if (soc >= 35) return 'mdi:battery-30';
-    if (soc >= 15) return 'mdi:battery-20';
-    return 'mdi:battery-10';
-  }
-
   // ---------------------------------------------------------------------------
   // Rendering
   // ---------------------------------------------------------------------------
@@ -335,36 +318,40 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
     const from = pointOnCircleToward(CENTER.x, CENTER.y, n.x, n.y, CENTER_RADIUS);
     const to = pointOnCircleToward(n.x, n.y, CENTER.x, CENTER.y, NODE_RADIUS);
 
-    const chevrons: SVGTemplateResult[] = [];
+    let chevrons: SVGTemplateResult | typeof nothing = nothing;
     if (n.flow !== 'none') {
-      const fromPoint = n.flow === 'in' ? to : from; // start at source
-      const toPoint = n.flow === 'in' ? from : to;   // end at sink
+      const src = n.flow === 'in' ? to : from;
+      const dst = n.flow === 'in' ? from : to;
       const pathId = `flow-${n.slot}`;
+      const duration = 1.8;
+      const count = 3;
 
-      chevrons.push(svg`
+      chevrons = svg`
         <path
           id=${pathId}
-          d=${`M ${fromPoint.x} ${fromPoint.y} L ${toPoint.x} ${toPoint.y}`}
+          d=${`M ${src.x} ${src.y} L ${dst.x} ${dst.y}`}
           fill="none"
           stroke="none"
         />
-        ${[0, 0.33, 0.66].map(
-          (offset) => svg`
-            <use href="#me-chevron" class="animated-chevron">
+        ${Array.from({ length: count }).map((_, i) => {
+          const begin = -(i * duration) / count;
+          return svg`
+            <path
+              d="M -4 -4 L 4 0 L -4 4 Z"
+              class="chevron animated-chevron"
+            >
               <animateMotion
-                dur="1.8s"
+                dur=${`${duration}s`}
                 repeatCount="indefinite"
                 rotate="auto"
-                keyPoints="0;1"
-                keyTimes="0;1"
-                begin=${`${offset * -1.8}s`}
+                begin=${`${begin}s`}
               >
                 <mpath href=${`#${pathId}`} />
               </animateMotion>
-            </use>
-          `,
-        )}
-      `);
+            </path>
+          `;
+        })}
+      `;
     }
 
     return svg`
@@ -383,6 +370,7 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
 
   private _renderCenter(ecoScore: number | undefined): SVGTemplateResult {
     const label = ecoScore !== undefined ? `${ecoScore}%` : '';
+    const leafY = CENTER.y - (ecoScore !== undefined ? 10 : 0);
     return svg`
       <g>
         <circle
@@ -392,7 +380,7 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
           r=${CENTER_RADIUS}
           stroke="var(--myenergi-green)"
         />
-        ${this._renderIcon('mdi:leaf', CENTER.x, CENTER.y - (ecoScore !== undefined ? 12 : 0), 24, 'var(--myenergi-green)')}
+        ${leafGlyph(CENTER.x, leafY, 'var(--myenergi-green)')}
         ${
           ecoScore !== undefined
             ? svg`<text class="center-label" x=${CENTER.x} y=${CENTER.y + 14}>${label}</text>`
@@ -448,10 +436,25 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
           stroke=${n.color}
         />
         ${this._renderBatteryFill(n)}
-        ${this._renderIcon(n.icon, n.x, n.y, 28, n.color)}
+        ${this._renderNodeIcon(n)}
         ${this._renderBadge(n)}
       </g>
     `;
+  }
+
+  /**
+   * Renders the glyph inside a node. If the user supplied a custom MDI icon
+   * (starts with "mdi:"), fall back to the <ha-icon> foreignObject path;
+   * otherwise use our hand-tuned built-in glyphs that match the myenergi
+   * app's outline style.
+   */
+  private _renderNodeIcon(n: NodeRender): SVGTemplateResult {
+    const slotCfg = this._config?.[n.slot] as NodeConfig | undefined;
+    const userIcon = slotCfg?.icon;
+    if (userIcon && /^mdi:/i.test(userIcon)) {
+      return this._renderIcon(userIcon, n.x, n.y, 28, n.color);
+    }
+    return builtinIcon(n.slot, n.x, n.y, n.color);
   }
 
   private _shouldShowName(n: NodeRender): boolean {
