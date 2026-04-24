@@ -11,6 +11,7 @@ import type {
   PowerUnit,
   BatteryConfig,
   ZappiConfig,
+  EddiConfig,
   NodeConfig,
 } from './types.js';
 import {
@@ -37,7 +38,7 @@ import {
   stateNumber,
 } from './utils.js';
 import { styles } from './styles.js';
-import { builtinIcon, leafGlyph } from './icons.js';
+import { batteryIcon, builtinIcon, leafGlyph, unpluggedGlyph } from './icons.js';
 
 /* eslint-disable no-console */
 console.info(
@@ -435,7 +436,6 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
           r=${NODE_RADIUS}
           stroke=${n.color}
         />
-        ${this._renderBatteryFill(n)}
         ${this._renderNodeIcon(n)}
         ${this._renderBadge(n)}
       </g>
@@ -445,14 +445,21 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
   /**
    * Renders the glyph inside a node. If the user supplied a custom MDI icon
    * (starts with "mdi:"), fall back to the <ha-icon> foreignObject path;
-   * otherwise use our hand-tuned built-in glyphs that match the myenergi
-   * app's outline style.
+   * otherwise use the myenergi-app SVG assets.
    */
   private _renderNodeIcon(n: NodeRender): SVGTemplateResult {
     const slotCfg = this._config?.[n.slot] as NodeConfig | undefined;
     const userIcon = slotCfg?.icon;
     if (userIcon && /^mdi:/i.test(userIcon)) {
       return this._renderIcon(userIcon, n.x, n.y, 28, n.color);
+    }
+    if (n.slot === 'libbi') {
+      // The libbi asset has 10 internal bars; light the first ceil(soc/10).
+      return batteryIcon(n.x, n.y, 46, n.color, n.soc);
+    }
+    if (n.slot === 'eddi') {
+      const eddi = this._config?.eddi as EddiConfig | undefined;
+      return builtinIcon(n.slot, n.x, n.y, n.color, eddi?.heater_type ?? 'tank');
     }
     return builtinIcon(n.slot, n.x, n.y, n.color);
   }
@@ -465,32 +472,6 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
     if (slotCfg?.name !== undefined) return Boolean(slotCfg.name);
     // Default: only show the name for the battery slot (matches myenergi app).
     return n.slot === 'libbi';
-  }
-
-  private _renderBatteryFill(n: NodeRender): SVGTemplateResult | typeof nothing {
-    if (n.slot !== 'libbi' || n.soc === undefined) return nothing;
-    const pct = Math.max(0, Math.min(100, n.soc));
-    // Subtle radial fill at the bottom of the circle to suggest SOC.
-    const r = NODE_RADIUS - 6;
-    const fillHeight = (pct / 100) * r * 2;
-    const yTop = n.y + r - fillHeight;
-    const clipId = `clip-${n.slot}`;
-    return svg`
-      <defs>
-        <clipPath id=${clipId}>
-          <circle cx=${n.x} cy=${n.y} r=${r} />
-        </clipPath>
-      </defs>
-      <rect
-        x=${n.x - r}
-        y=${yTop}
-        width=${r * 2}
-        height=${fillHeight}
-        fill=${n.color}
-        opacity="0.14"
-        clip-path=${`url(#${clipId})`}
-      />
-    `;
   }
 
   private _renderIcon(
@@ -561,18 +542,11 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
           <rect x=${cx + 1} y=${cy - 3} width="2" height="6" fill="var(--myenergi-fg)" />
         `;
       case 'charging':
-        return svg`<path d=${`M ${cx - 1} ${cy - 4} L ${cx + 3} ${cy - 1} L ${cx} ${cy - 1} L ${cx + 2} ${cy + 4} L ${cx - 3} ${cy + 1} L ${cx} ${cy + 1} Z`} fill="var(--myenergi-fg)" />`;
       case 'bolt':
         return svg`<path d=${`M ${cx - 1} ${cy - 4} L ${cx + 3} ${cy - 1} L ${cx} ${cy - 1} L ${cx + 2} ${cy + 4} L ${cx - 3} ${cy + 1} L ${cx} ${cy + 1} Z`} fill="var(--myenergi-fg)" />`;
       case 'plug-off':
       default:
-        // Plug with a diagonal strike.
-        return svg`
-          <g fill="none" stroke="var(--myenergi-fg)" stroke-width="1.2" stroke-linecap="round">
-            <path d=${`M ${cx - 3.5} ${cy - 1} L ${cx - 1.5} ${cy - 3} M ${cx - 1.5} ${cy - 3} L ${cx + 1} ${cy - 0.5} L ${cx - 1} ${cy + 1.5} L ${cx - 3.5} ${cy - 1} Z`} />
-            <line x1=${cx - 4} y1=${cy + 4} x2=${cx + 4} y2=${cy - 4} stroke="var(--myenergi-fg)" stroke-width="1.4" />
-          </g>
-        `;
+        return unpluggedGlyph(cx, cy, 12, 'var(--myenergi-fg)');
     }
   }
 

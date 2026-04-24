@@ -18,7 +18,7 @@ not provided is hidden and its connection line is removed.
 | `home`           | NodeConfig       | —                | Home consumption node. |
 | `libbi`          | BatteryConfig    | —                | Libbi battery node. |
 | `zappi`          | ZappiConfig      | —                | Zappi EV charger node. |
-| `eddi`           | NodeConfig       | —                | Eddi hot-water diverter node. |
+| `eddi`           | EddiConfig       | —                | Eddi hot-water diverter node. |
 
 ## `NodeConfig`
 
@@ -37,6 +37,11 @@ soc: sensor.libbi_soc             # optional – state of charge in %
 name: "LIBBI"
 ```
 
+If `soc` is provided, the ten internal bars of the libbi glyph are used
+as a fuel gauge: `ceil(soc / 10)` bars are drawn in the node's state
+colour and the remaining bars are dimmed. If `soc` is omitted, the
+battery glyph is rendered full-charge.
+
 ## `ZappiConfig` (extends NodeConfig)
 
 ```yaml
@@ -44,6 +49,17 @@ power: sensor.zappi_power
 plug: binary_sensor.zappi_plugged # optional – on = plugged in
 status: sensor.zappi_status       # optional – "Charging", "Boosting", "EV Disconnected", ...
 ```
+
+## `EddiConfig` (extends NodeConfig)
+
+```yaml
+power: sensor.eddi_power
+heater_type: tank                 # optional – tank | pool | radiator | underfloor
+```
+
+The `heater_type` selects which of the myenergi app heater glyphs is
+drawn inside the eddi node. It is purely visual and has no effect on the
+power values.
 
 ## Example
 
@@ -66,6 +82,7 @@ zappi:
   status: sensor.zappi_status
 eddi:
   power: sensor.eddi_power
+  heater_type: tank               # tank | pool | radiator | underfloor
 ```
 
 ## Sign conventions

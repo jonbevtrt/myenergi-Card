@@ -162,7 +162,28 @@ const SCHEMA: HaFormField[] = [
     type: 'expandable',
     title: 'Eddi (Hot Water)',
     icon: 'mdi:water-boiler',
-    schema: slotInnerSchema(),
+    schema: slotInnerSchema([
+      {
+        name: '',
+        type: 'grid',
+        schema: [
+          {
+            name: 'heater_type',
+            selector: {
+              select: {
+                mode: 'dropdown',
+                options: [
+                  { value: 'tank', label: 'Hot-water tank' },
+                  { value: 'pool', label: 'Pool' },
+                  { value: 'radiator', label: 'Radiator' },
+                  { value: 'underfloor', label: 'Underfloor heating' },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    ]),
   },
 ];
 
@@ -181,6 +202,7 @@ const LABELS: Record<string, string> = {
   soc: 'State of charge entity',
   plug: 'Plug state entity',
   status: 'Status entity',
+  heater_type: 'Heater style',
 
   grid: 'Grid',
   solar: 'Solar',

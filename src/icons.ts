@@ -1,142 +1,211 @@
-import { svg, type SVGTemplateResult } from 'lit';
+import { svg, nothing, type SVGTemplateResult } from 'lit';
+import { unsafeSVG } from 'lit/directives/unsafe-svg.js';
 import type { NodeSlot } from './types.js';
 
+import houseSvg from './svgs/assets_house_happy.svg';
+import gridSvg from './svgs/assets_grid.svg';
+import solarSvg from './svgs/assets_solar.svg';
+import batterySvg from './svgs/assets_batterylibbi10.svg';
+import zappiSvg from './svgs/assets_zappi.svg';
+import leafSvg from './svgs/assets_leaf_big.svg';
+import unpluggedSvg from './svgs/assets_unplugged.svg';
+import heaterTankSvg from './svgs/assets_heater_tank2.svg';
+import heaterPoolSvg from './svgs/assets_heater_pool.svg';
+import heaterRadiatorSvg from './svgs/assets_heater_radiator.svg';
+import heaterUnderfloorSvg from './svgs/assets_heater_underfloor.svg';
+
+export type HeaterType = 'tank' | 'pool' | 'radiator' | 'underfloor';
+
+interface ProcessedSvg {
+  /** width attribute from the original <svg> as a number */
+  width: number;
+  /** height attribute from the original <svg> as a number */
+  height: number;
+  /** inner markup (paths, groups) with fills replaced by currentColor */
+  inner: string;
+}
+
+const SVG_ROOT_RE = /<svg[^>]*\bwidth=["']?(\d+)(?:px)?["']?[^>]*\bheight=["']?(\d+)(?:px)?["']?[^>]*>([\s\S]*?)<\/svg>/i;
+const FILL_ATTR_RE = /fill\s*=\s*(?:"(?:#[0-9a-fA-F]{3,8}|[a-zA-Z]+)"|'(?:#[0-9a-fA-F]{3,8}|[a-zA-Z]+)')/g;
+const FILL_STYLE_RE = /fill\s*:\s*(?:#[0-9a-fA-F]{3,8}|[a-zA-Z]+)\s*;?/g;
+const DOCTYPE_RE = /<!DOCTYPE[\s\S]*?>/i;
+const XML_DECL_RE = /<\?xml[\s\S]*?\?>/i;
+const COMMENT_RE = /<!--[\s\S]*?-->/g;
+
+function processSvg(raw: string): ProcessedSvg {
+  const cleaned = raw
+    .replace(XML_DECL_RE, '')
+    .replace(DOCTYPE_RE, '')
+    .replace(COMMENT_RE, '');
+
+  const match = SVG_ROOT_RE.exec(cleaned);
+  if (!match) {
+    return { width: 268, height: 268, inner: cleaned };
+  }
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  let inner = match[3];
+
+  inner = inner
+    .replace(FILL_ATTR_RE, 'fill="currentColor"')
+    .replace(FILL_STYLE_RE, '');
+
+  return { width, height, inner };
+}
+
+const HOUSE = processSvg(houseSvg);
+const GRID = processSvg(gridSvg);
+const SOLAR = processSvg(solarSvg);
+const ZAPPI = processSvg(zappiSvg);
+const LEAF = processSvg(leafSvg);
+const UNPLUGGED = processSvg(unpluggedSvg);
+const HEATERS: Record<HeaterType, ProcessedSvg> = {
+  tank: processSvg(heaterTankSvg),
+  pool: processSvg(heaterPoolSvg),
+  radiator: processSvg(heaterRadiatorSvg),
+  underfloor: processSvg(heaterUnderfloorSvg),
+};
+
 /**
- * Built-in SVG glyphs drawn in the same outline style as the official
- * myenergi mobile app (simple, uniform stroke, no fill, rounded joins).
- *
- * Each renderer returns an SVG group whose visual centre is (cx, cy) and
- * whose nominal size fits inside a ~32x32 viewport. The stroke colour is
- * supplied by the caller – the glyphs themselves use `currentColor` where
- * possible so CSS can override if needed.
- *
- * We use our own SVG paths rather than Material Design Icons for two
- * reasons:
- *   1. The myenergi app uses bespoke line-art that doesn't correspond to
- *      any MDI icon – the outline weight, proportions and cap rounding
- *      are distinctive.
- *   2. Rendering MDI via <ha-icon> inside a <foreignObject> rasterises
- *      the icon and loses crispness when the card is scaled.
+ * The libbi SVG is structured as 11 top-level <g> blocks: one body/frame
+ * followed by ten internal bars (10% steps of SOC). We split them so the
+ * battery can be rendered with only the first N bars lit.
  */
+interface BatteryAsset {
+  width: number;
+  height: number;
+  body: string;
+  bars: string[];
+}
 
-const STROKE = 1.9;
+function processBatterySvg(raw: string): BatteryAsset {
+  const processed = processSvg(raw);
+  const groups = processed.inner.match(/<g\b[^>]*>[\s\S]*?<\/g>/gi) ?? [];
+  const [body = '', ...bars] = groups;
+  // Pad or truncate just in case — the asset is authored with exactly ten.
+  const ten = bars.slice(0, 10);
+  while (ten.length < 10) ten.push('');
+  return { width: processed.width, height: processed.height, body, bars: ten };
+}
 
-function translate(
-  content: SVGTemplateResult,
+const BATTERY = processBatterySvg(batterySvg);
+
+/**
+ * Embed a processed SVG asset as a nested <svg> inside the main diagram.
+ * The nested SVG preserves the asset's aspect ratio while fitting the
+ * supplied size on its longest edge.
+ */
+function embed(
+  asset: ProcessedSvg,
   cx: number,
   cy: number,
+  size: number,
   color: string,
 ): SVGTemplateResult {
+  const aspect = asset.width / asset.height;
+  const w = aspect >= 1 ? size : size * aspect;
+  const h = aspect >= 1 ? size / aspect : size;
   return svg`
-    <g
-      transform=${`translate(${cx} ${cy})`}
-      fill="none"
-      stroke=${color}
-      stroke-width=${STROKE}
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >${content}</g>
+    <svg
+      x=${cx - w / 2}
+      y=${cy - h / 2}
+      width=${w}
+      height=${h}
+      viewBox=${`0 0 ${asset.width} ${asset.height}`}
+      preserveAspectRatio="xMidYMid meet"
+      overflow="visible"
+      style=${`color:${color};`}
+    >${unsafeSVG(asset.inner)}</svg>
   `;
 }
 
-/** Simple house with smile face (matches myenergi "home" node). */
-function houseGlyph(): SVGTemplateResult {
-  return svg`
-    <path d="M -10 -2 L 0 -12 L 10 -2 L 10 10 L -10 10 Z" />
-    <path d="M -4 4 Q 0 7 4 4" />
-  `;
-}
-
-/** Transmission tower (pylon) silhouette. */
-function pylonGlyph(): SVGTemplateResult {
-  return svg`
-    <path d="M -10 -12 L 10 -12" />
-    <path d="M -8 -8 L 8 -8" />
-    <path d="M -10 -12 L 0 0 L 10 -12" />
-    <path d="M 10 -12 L 0 0 L -10 -12" />
-    <path d="M 0 0 L -10 12" />
-    <path d="M 0 0 L 10 12" />
-    <path d="M -6 4 L 6 4" />
-  `;
-}
-
-/** Vertical Libbi-style battery stack (rotated 90° vs a phone battery). */
-function batteryGlyph(): SVGTemplateResult {
-  return svg`
-    <rect x="-7" y="-12" width="14" height="24" rx="2.5" />
-    <rect x="-3" y="-14.5" width="6" height="2.5" rx="0.8" fill="currentColor" stroke="none" />
-    <line x1="-4" y1="-5" x2="4" y2="-5" />
-    <line x1="-4" y1="0" x2="4" y2="0" />
-    <line x1="-4" y1="5" x2="4" y2="5" />
-  `;
-}
-
-/** Solar panel on small stand with cell grid. */
-function solarGlyph(): SVGTemplateResult {
-  return svg`
-    <path d="M -12 -6 L 12 -6 L 10 6 L -10 6 Z" />
-    <line x1="-11" y1="0" x2="11" y2="0" />
-    <line x1="-4" y1="-6" x2="-6" y2="6" />
-    <line x1="4" y1="-6" x2="6" y2="6" />
-    <line x1="0" y1="6" x2="0" y2="10" />
-    <line x1="-4" y1="10" x2="4" y2="10" />
-  `;
-}
-
-/** Stylised EV side profile (matches Zappi "car" icon in the app). */
-function carGlyph(): SVGTemplateResult {
-  return svg`
-    <path d="M -12 3 L -10 -2 Q -8 -6 -4 -6 L 4 -6 Q 8 -6 10 -2 L 12 3 L 12 7 L -12 7 Z" />
-    <circle cx="-6" cy="7" r="2.5" />
-    <circle cx="6" cy="7" r="2.5" />
-    <path d="M -4 -6 L -2 -1 L 2 -1 L 4 -6" />
-  `;
-}
-
-/** Eddi hot-water diverter (drawn as a tank with waves). */
-function eddiGlyph(): SVGTemplateResult {
-  return svg`
-    <rect x="-7" y="-11" width="14" height="22" rx="2" />
-    <line x1="-7" y1="-4" x2="7" y2="-4" />
-    <path d="M -5 2 Q -2.5 0 0 2 T 5 2" />
-    <path d="M -5 6 Q -2.5 4 0 6 T 5 6" />
-  `;
-}
-
-/** Leaf used in the centre "Eco" node. */
-export function leafGlyph(cx: number, cy: number, color: string): SVGTemplateResult {
-  return svg`
-    <g
-      transform=${`translate(${cx} ${cy})`}
-      fill=${color}
-      stroke=${color}
-      stroke-width="1"
-      stroke-linejoin="round"
-    >
-      <path d="M 10 -9 C 2 -10 -8 -6 -9 4 C -9 9 -6 10 -2 9 C 8 7 10 -1 10 -9 Z" />
-      <path d="M -8 9 L 6 -6" stroke="var(--myenergi-bg)" stroke-width="1.4" fill="none" stroke-linecap="round" />
-    </g>
-  `;
-}
+/** Sizes (longest-edge in view-box units) per slot. */
+const SLOT_ICON_SIZE: Record<NodeSlot, number> = {
+  home: 44,
+  grid: 44,
+  solar: 46,
+  libbi: 46,
+  zappi: 50,
+  eddi: 46,
+};
 
 export function builtinIcon(
   slot: NodeSlot,
   cx: number,
   cy: number,
   color: string,
+  heaterType: HeaterType = 'tank',
 ): SVGTemplateResult {
+  const size = SLOT_ICON_SIZE[slot];
   switch (slot) {
     case 'home':
-      return translate(houseGlyph(), cx, cy, color);
+      return embed(HOUSE, cx, cy, size, color);
     case 'grid':
-      return translate(pylonGlyph(), cx, cy, color);
-    case 'libbi':
-      return translate(batteryGlyph(), cx, cy, color);
+      return embed(GRID, cx, cy, size, color);
     case 'solar':
-      return translate(solarGlyph(), cx, cy, color);
+      return embed(SOLAR, cx, cy, size, color);
+    case 'libbi':
+      // Fall through to `batteryIcon` when the caller has the SOC; this
+      // default ignores SOC and shows a full-charge battery so the node
+      // doesn't look empty before the SOC entity resolves.
+      return batteryIcon(cx, cy, size, color);
     case 'zappi':
-      return translate(carGlyph(), cx, cy, color);
+      return embed(ZAPPI, cx, cy, size, color);
     case 'eddi':
-      return translate(eddiGlyph(), cx, cy, color);
+      return embed(HEATERS[heaterType] ?? HEATERS.tank, cx, cy, size, color);
   }
+}
+
+/**
+ * Render the Libbi battery. If `soc` is provided (0-100) the glyph
+ * lights `ceil(soc / 10)` bars and dims the rest so the cells behave
+ * like a real fuel gauge.
+ */
+export function batteryIcon(
+  cx: number,
+  cy: number,
+  size: number,
+  color: string,
+  soc?: number,
+): SVGTemplateResult {
+  const aspect = BATTERY.width / BATTERY.height;
+  const w = aspect >= 1 ? size : size * aspect;
+  const h = aspect >= 1 ? size / aspect : size;
+
+  const hasSoc = typeof soc === 'number' && Number.isFinite(soc);
+  const clamped = hasSoc ? Math.max(0, Math.min(100, soc as number)) : 100;
+  const lit = hasSoc ? Math.min(10, Math.ceil(clamped / 10)) : 10;
+
+  const lightBars = BATTERY.bars.slice(0, lit).join('');
+  const dimBars = BATTERY.bars.slice(lit).join('');
+
+  return svg`
+    <svg
+      x=${cx - w / 2}
+      y=${cy - h / 2}
+      width=${w}
+      height=${h}
+      viewBox=${`0 0 ${BATTERY.width} ${BATTERY.height}`}
+      preserveAspectRatio="xMidYMid meet"
+      overflow="visible"
+      style=${`color:${color};`}
+    >${unsafeSVG(BATTERY.body)}${
+      dimBars
+        ? svg`<g opacity="0.22">${unsafeSVG(dimBars)}</g>`
+        : nothing
+    }${lightBars ? unsafeSVG(lightBars) : nothing}</svg>
+  `;
+}
+
+export function leafGlyph(cx: number, cy: number, color: string): SVGTemplateResult {
+  return embed(LEAF, cx, cy, 54, color);
+}
+
+export function unpluggedGlyph(
+  cx: number,
+  cy: number,
+  size: number,
+  color: string,
+): SVGTemplateResult {
+  return embed(UNPLUGGED, cx, cy, size, color);
 }

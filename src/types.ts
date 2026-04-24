@@ -2,6 +2,8 @@ import type { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 export type PowerUnit = 'kW' | 'W';
 
+export type HeaterType = 'tank' | 'pool' | 'radiator' | 'underfloor';
+
 export interface NodeConfig {
   power?: string;
   name?: string;
@@ -18,6 +20,10 @@ export interface ZappiConfig extends NodeConfig {
   status?: string;
 }
 
+export interface EddiConfig extends NodeConfig {
+  heater_type?: HeaterType;
+}
+
 export interface MyenergiCardConfig extends LovelaceCardConfig {
   type: string;
   title?: string | false;
@@ -31,7 +37,7 @@ export interface MyenergiCardConfig extends LovelaceCardConfig {
   home?: NodeConfig;
   libbi?: BatteryConfig;
   zappi?: ZappiConfig;
-  eddi?: NodeConfig;
+  eddi?: EddiConfig;
 }
 
 export type NodeSlot =
