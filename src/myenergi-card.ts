@@ -225,21 +225,23 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
       const labelAnchor: NodeRender['labelAnchor'] =
         outward.x < CENTER.x - 4 ? 'end' : outward.x > CENTER.x + 4 ? 'start' : 'middle';
 
-      // Colour overrides per slot state.
-      let color = def.color;
+      // Each slot has a fixed device colour; the only colour change is to
+      // grey when the node is inactive (no flow / unavailable). Per-state
+      // badges (play, pause, charging, plug-off, bolt) still convey the
+      // direction of energy without recolouring the ring.
       const icon = slotCfg?.icon ?? def.icon;
       let badge: NodeBadge | undefined;
       let soc: number | undefined;
 
+      // Track whether the node should be considered "inactive" — used at
+      // the end of the block to override the ring colour with grey. We
+      // start from "no measurable flow" and let slot-specific logic
+      // (e.g. zappi unplugged) force it on.
+      let inactive = flow === 'none';
+
       if (slot === 'libbi') {
         const b = cfg.libbi as BatteryConfig | undefined;
         soc = normaliseSoc(getEntity(this.hass, b?.soc));
-        color =
-          signed > 0
-            ? 'var(--myenergi-orange)'
-            : signed < 0
-              ? 'var(--myenergi-green)'
-              : 'var(--myenergi-orange)';
         badge = signed > 0 ? 'play' : signed < 0 ? 'charging' : 'pause';
       } else if (slot === 'zappi') {
         const z = cfg.zappi as ZappiConfig | undefined;
@@ -251,17 +253,14 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
             )
           : signed !== 0;
         if (!plugged) {
-          color = 'var(--myenergi-grey)';
           badge = 'plug-off';
+          inactive = true;
         } else if (signed > 0) {
-          color = 'var(--myenergi-green)';
           badge = /boost/i.test(String(status)) ? 'bolt' : 'play';
-        } else {
-          color = 'var(--myenergi-grey)';
         }
-      } else if (slot === 'grid') {
-        color = signed > 0 ? 'var(--myenergi-orange)' : 'var(--myenergi-green)';
       }
+
+      const color = !available || inactive ? 'var(--myenergi-grey)' : def.color;
 
       out.push({
         slot,
@@ -331,12 +330,26 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
   // Rendering
   // ---------------------------------------------------------------------------
 
+  /**
+   * Returns the chevron fill colour for a connection line. The colour is
+   * determined by the *source* slot of the flow, not the direction:
+   *   - grid  → red    (energy from the utility)
+   *   - solar → green  (renewable generation)
+   *   - other → yellow (battery, EV V2H, eddi, home — neutral)
+   */
+  private _chevronColor(slot: NodeSlot): string {
+    if (slot === 'grid') return 'var(--myenergi-red)';
+    if (slot === 'solar') return 'var(--myenergi-green)';
+    return 'var(--myenergi-yellow)';
+  }
+
   private _renderLine(n: NodeRender): SVGTemplateResult {
     const from = pointOnCircleToward(CENTER.x, CENTER.y, n.x, n.y, CENTER_RADIUS);
     const to = pointOnCircleToward(n.x, n.y, CENTER.x, CENTER.y, NODE_RADIUS);
 
     let chevrons: SVGTemplateResult | typeof nothing = nothing;
     if (n.flow !== 'none') {
+      const chevronFill = this._chevronColor(n.slot);
       // The flow direction comes straight from `_flowForSlot` (which
       // honours each sensor's sign convention via the `invert` config
       // flag). 'in' = node → centre, 'out' = centre → node.
@@ -382,7 +395,7 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
           const begin = (i * duration) / count;
           return svg`
             <g transform=${initialTransform}>
-              <path class="chevron" d=${d} />
+              <path class="chevron" d=${d} fill=${chevronFill} />
               <animateTransform
                 attributeName="transform"
                 type="translate"

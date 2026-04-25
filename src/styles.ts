@@ -7,6 +7,7 @@ export const styles = css`
     --myenergi-red: #e74c3c;
     --myenergi-magenta: #c71585;
     --myenergi-blue: #3498db;
+    --myenergi-yellow: #f1c40f;
     --myenergi-grey: #555c66;
     --myenergi-bg: #0b0d10;
     --myenergi-fg: #ffffff;
@@ -78,7 +79,7 @@ export const styles = css`
   }
 
   .chevron {
-    fill: var(--myenergi-green);
+    fill: var(--myenergi-yellow);
     stroke: none;
   }
 

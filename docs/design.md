@@ -42,9 +42,14 @@ central eco-score node and peripheral circles for each connected device.
 
 Each node is a 72-unit-diameter circle with a 3-unit coloured stroke.
 
-- Stroke colour follows the device: grid=orange, solar=green, home=magenta,
-  battery=orange/green depending on charge/discharge, EV=grey when idle /
-  green when charging / orange when V2H, eddi=red.
+- Stroke colour is fixed per device and does **not** change with the
+  direction or magnitude of power flow:
+  grid=orange, solar=green, home=magenta, libbi=orange, zappi=blue,
+  eddi=red. The only state change is to **grey** when the node is
+  inactive — i.e. the entity is unavailable, the power is below the
+  flow threshold, or (for `zappi`) the plug entity reports unplugged.
+  Direction of flow is communicated via the chevrons (see below) and via
+  per-node badges (▶ discharging, ⏸ idle, charge arrow, plug-off, ⚡ boost).
 - Fill is `--card-background-color` so the node reads as a "hole" in the
   diagram.
 - Inside the circle, a Material Design icon in the device colour at
@@ -70,9 +75,14 @@ Each node is a 72-unit-diameter circle with a 3-unit coloured stroke.
   peripheral node's edge.
 - Stroke: `rgba(255,255,255,0.15)`, 2 units thick.
 - When power is flowing along a line (> configurable threshold, default
-  0.05 kW), a chain of three green chevron glyphs (▶) animates from the
-  "source" end to the "sink" end using an SVG `<animateMotion>` tied to
-  the line's path, with a 1.8 s duration.
+  0.05 kW), a chain of animated chevron glyphs (▶) travels from the
+  "source" end to the "sink" end with a 1.8 s duration.
+- Chevron colour is determined by the **source slot** of the flow, so the
+  user can read where the energy is coming from at a glance:
+  - **red** — energy from the grid (importing)
+  - **green** — energy from solar (generating)
+  - **yellow** — every other line (battery, eddi, zappi V2H, exports
+    away from the centre, home consumption)
 - Direction of flow:
   - solar → centre (solar producing)
   - centre → home (always, while home consumes)
@@ -91,6 +101,7 @@ Defined as CSS custom properties on the card host so they can be themed:
 --myenergi-red:     #e74c3c;
 --myenergi-magenta: #c71585;
 --myenergi-blue:    #3498db;
+--myenergi-yellow:  #f1c40f;
 --myenergi-grey:    #555c66;
 --myenergi-bg:      #0b0d10;
 --myenergi-fg:      #ffffff;

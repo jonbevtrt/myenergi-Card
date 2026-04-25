@@ -31,6 +31,6 @@ export const SLOT_DEFAULTS: Record<
   grid:  { name: 'Grid',  icon: 'mdi:transmission-tower',   color: 'var(--myenergi-orange)'  },
   solar: { name: 'Solar', icon: 'mdi:solar-panel',          color: 'var(--myenergi-green)'   },
   libbi: { name: 'LIBBI', icon: 'mdi:battery-high',         color: 'var(--myenergi-orange)'  },
-  zappi: { name: 'ZAPPI', icon: 'mdi:car-electric-outline', color: 'var(--myenergi-grey)'    },
+  zappi: { name: 'ZAPPI', icon: 'mdi:car-electric-outline', color: 'var(--myenergi-blue)'    },
   eddi:  { name: 'EDDI',  icon: 'mdi:water-boiler',         color: 'var(--myenergi-red)'     },
 };
