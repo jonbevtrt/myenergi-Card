@@ -13,6 +13,7 @@ not provided is hidden and its connection line is removed.
 | `show_footer`    | boolean          | `true`           | Show the "myenergi" wordmark at the bottom. |
 | `flow_threshold` | number (kW)      | `0.05`           | Power below this is treated as zero (no animation). |
 | `power_unit`     | `kW` \| `W`      | `kW`             | Unit shown on labels. The card auto-converts sensors whose `unit_of_measurement` differs. |
+| `chevron_thresholds` | `[number, number]` | `[1, 3]`     | Power magnitudes (kW) at which the animated chevron count steps from 1 → 2 → 3. |
 | `grid`           | NodeConfig       | —                | Grid import/export node. |
 | `solar`          | NodeConfig       | —                | Solar PV generation node. |
 | `home`           | NodeConfig       | —                | Home consumption node. |
@@ -99,3 +100,26 @@ The card uses the following sign convention for every `power` sensor:
 | `eddi`   | diverting to hot water   | (treated as 0)              |
 
 Use `invert: true` on a node if your sensor has the opposite sign.
+
+## Flow animation
+
+For every node with non-zero power, an animated trail of chevrons is drawn
+along the connection line. Two things vary based on live data:
+
+- **Direction.** Chevrons follow the actual flow of energy. For example,
+  while `libbi` is charging the chevrons travel from the centre toward the
+  battery; while it is discharging they travel from the battery toward the
+  centre. Same for the grid: importing flows toward the centre, exporting
+  flows toward the grid icon.
+- **Quantity.** The number of chevrons in motion reflects the magnitude of
+  the flow. With the default `chevron_thresholds: [1, 3]`:
+  - `|power| < 1 kW` → 1 chevron
+  - `1 kW ≤ |power| < 3 kW` → 2 chevrons
+  - `|power| ≥ 3 kW` → 3 chevrons
+
+If your installation runs at a different scale (e.g. only ever a few hundred
+watts), tune the breakpoints, e.g.:
+
+```yaml
+chevron_thresholds: [0.3, 1.5]
+```

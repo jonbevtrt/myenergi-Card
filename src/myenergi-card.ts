@@ -311,6 +311,22 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
     }
   }
 
+  /**
+   * Returns the [medium, high] kW thresholds at which the animated
+   * chevron count steps from 1 → 2 → 3. Sanitised against bad input.
+   */
+  private _chevronThresholds(): [number, number] {
+    const cfg = this._config?.chevron_thresholds;
+    let mid = 1;
+    let high = 3;
+    if (Array.isArray(cfg) && cfg.length === 2) {
+      const [a, b] = cfg;
+      if (Number.isFinite(a) && a > 0) mid = a;
+      if (Number.isFinite(b) && b > mid) high = b;
+    }
+    return [mid, high];
+  }
+
   // ---------------------------------------------------------------------------
   // Rendering
   // ---------------------------------------------------------------------------
@@ -321,6 +337,9 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
 
     let chevrons: SVGTemplateResult | typeof nothing = nothing;
     if (n.flow !== 'none') {
+      // The flow direction comes straight from `_flowForSlot` (which
+      // honours each sensor's sign convention via the `invert` config
+      // flag). 'in' = node → centre, 'out' = centre → node.
       const src = n.flow === 'in' ? to : from;
       const dst = n.flow === 'in' ? from : to;
       const angle = Math.atan2(dst.y - src.y, dst.x - src.x);
@@ -346,8 +365,13 @@ export class MyenergiCard extends LitElement implements LovelaceCard {
         `L ${fmt(p2[0])} ${fmt(p2[1])} ` +
         `L ${fmt(p3[0])} ${fmt(p3[1])} Z`;
 
+      // Number of chevrons reflects the magnitude of the flow. Default
+      // breakpoints are [1 kW, 3 kW] but configurable per card.
+      const [tMid, tHigh] = this._chevronThresholds();
+      const mag = Math.abs(n.power);
+      const count = mag >= tHigh ? 3 : mag >= tMid ? 2 : 1;
+
       const duration = 1.8;
-      const count = 3;
       const initialTransform = `translate(${src.x} ${src.y})`;
 
       chevrons = svg`

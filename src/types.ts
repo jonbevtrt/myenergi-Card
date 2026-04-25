@@ -31,6 +31,14 @@ export interface MyenergiCardConfig extends LovelaceCardConfig {
   show_footer?: boolean;
   flow_threshold?: number;
   power_unit?: PowerUnit;
+  /**
+   * Power thresholds (kW) at which to step the animated chevron count
+   * up from 1 → 2 → 3. Defaults to [1, 3]:
+   *   |power| <  1 kW  → 1 chevron
+   *   1 ≤ |p| <  3 kW  → 2 chevrons
+   *   |power| ≥ 3 kW   → 3 chevrons
+   */
+  chevron_thresholds?: [number, number];
 
   grid?: NodeConfig;
   solar?: NodeConfig;
