@@ -44,7 +44,7 @@ Each node is a 72-unit-diameter circle with a 3-unit coloured stroke.
 
 - Stroke colour is fixed per device and does **not** change with the
   direction or magnitude of power flow:
-  grid=orange, solar=green, home=magenta, libbi=orange, zappi=blue,
+  grid=red-orange, solar=green, home=magenta, libbi=orange, zappi=blue,
   eddi=red. The only state change is to **grey** when the node is
   inactive — i.e. the entity is unavailable, the power is below the
   flow threshold, or (for `zappi`) the plug entity reports unplugged.
@@ -96,9 +96,10 @@ Each node is a 72-unit-diameter circle with a 3-unit coloured stroke.
 Defined as CSS custom properties on the card host so they can be themed:
 
 ```css
---myenergi-green:   #2ecc71;
---myenergi-orange:  #f39c12;
---myenergi-red:     #e74c3c;
+--myenergi-green:      #2ecc71;
+--myenergi-orange:     #f39c12;
+--myenergi-red-orange: #e8590c;
+--myenergi-red:        #e74c3c;
 --myenergi-magenta: #c71585;
 --myenergi-blue:    #3498db;
 --myenergi-yellow:  #f1c40f;

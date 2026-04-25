@@ -4,6 +4,7 @@ export const styles = css`
   :host {
     --myenergi-green: #2ecc71;
     --myenergi-orange: #f39c12;
+    --myenergi-red-orange: #e8590c;
     --myenergi-red: #e74c3c;
     --myenergi-magenta: #c71585;
     --myenergi-blue: #3498db;
